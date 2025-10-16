@@ -161,7 +161,7 @@ def add_files_multipart():
         logging.error("No file was uploaded in the request!")
         return make_response("File missing!", 400)
 
-    # Reference to the uploaded file under the 'file' key
+    # Reference to the file under 'file' key
     file = files.get('file')
     # The sender encodes the file name and type together with the file contents
     filename = file.filename
@@ -171,27 +171,42 @@ def add_files_multipart():
     size = len(data)
     print("File received: %s, size: %d bytes, type: %s" % (filename, size, content_type))
 
-    # Read the requested storage mode (default value: 'raid1')
+    # Read the requested storage mode from the form (default value: 'raid1')
     storage_mode = payload.get('storage', 'raid1')
     print("Storage mode: %s" % storage_mode)
 
     if storage_mode == 'raid1':
-        # TODO implement RAID 1
-        pass
-
+        file_data_1_names, file_data_2_names = raid1.store_file(data, send_task_socket, response_socket)
+        storage_details = {
+            "part1_filenames": file_data_1_names,
+            "part2_filenames": file_data_2_names
+        }
     elif storage_mode == 'erasure_coding_rs':
-        # TODO implement Reed Solomon code
+        # Reed Solomon code
         # Parse max_erasures (everything is a string in request.form,
         # we need to convert to int manually), set default value to 1
         max_erasures = int(payload.get('max_erasures', 1))
         print("Max erasures: %d" % (max_erasures))
+        #TODO Implement erasure coding
+        storage_details = {
+            "part1_filenames": "",
+            "part2_filenames": "",
+        }
         pass
-
     else:
         logging.error("Unexpected storage mode: %s" % storage_mode)
         return make_response("Wrong storage mode", 400)
 
-    return make_response('OK', 200)
+    # Insert the File record in the DB
+    import json
+    db = get_db()
+    cursor = db.execute(
+        "INSERT INTO `file`(`filename`, `size`, `content_type`, `storage_mode`, `storage_details`) VALUES (?,?,?,?,?)",
+        (filename, size, content_type, storage_mode, json.dumps(storage_details))
+    )
+    db.commit()
+
+    return make_response({"id": cursor.lastrowid }, 201)
 #\
 @app.errorhandler(500)
 def server_error(e):
