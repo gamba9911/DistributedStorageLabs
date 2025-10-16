@@ -6,6 +6,12 @@ REST Server, starter template for Week 4
 
 from flask import Flask, make_response, g, request, send_file
 import sqlite3
+import zmq # For ZMQ
+import time # For waiting a second for ZMQ connections
+import math # For cutting the file in half
+import random # For selecting a random half when requesting chunks
+import messages_pb2 # Generated Protobuf messages
+import io # For sending binary data in a HTTP response
 
 """
 Utility Functions
@@ -65,7 +71,24 @@ def write_file(data, filename=None):
     return filename
 #
 
+# Initiate ZMQ sockets
+context = zmq.Context()
 
+# Socket to send tasks to Storage Nodes
+send_task_socket = context.socket(zmq.PUSH)
+send_task_socket.bind("tcp://*:5557")
+
+# Socket to receive messages from Storage Nodes
+response_socket = context.socket(zmq.PULL)
+response_socket.bind("tcp://*:5558")
+
+# Publisher socket for data request broadcasts
+data_req_socket = context.socket(zmq.PUB)
+data_req_socket.bind("tcp://*:5559")
+
+# Wait for all workers to start and connect.
+time.sleep(1)
+print("Listening to ZMQ messages on tcp://*:5558")
 
 """
 REST API
