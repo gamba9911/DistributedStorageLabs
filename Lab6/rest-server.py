@@ -99,9 +99,31 @@ def download_file(file_id):
     # Convert to a Python dictionary
     f = dict(f)
     print("File requested: {}".format(f['filename']))
-    
-   
-    return make_response({"message":"File {} found".format(file_id)}, 201)
+
+    # Parse the storage details JSON string
+    import json
+    storage_details = json.loads(f['storage_details'])
+
+    if f['storage_mode'] == 'raid1':
+        part1_filenames = storage_details['part1_filenames']
+        part2_filenames = storage_details['part2_filenames']
+
+        file_data = raid1.get_file(
+            part1_filenames,
+            part2_filenames,
+            data_req_socket,
+            response_socket
+        )
+
+    elif f['storage_mode'] == 'erasure_coding_rs':
+        # TODO Handle Reed Solomon
+        # dummyImage to simulate content retrieval
+        with open("dummyImage.png", "rb") as image:
+            file = image.read()
+        file_data = bytearray(file)
+        pass
+
+    return send_file(io.BytesIO(file_data), mimetype=f['content_type'])
 #
 
 # HTTP HEAD requests are served by the GET endpoint of the same URL,
