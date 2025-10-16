@@ -150,26 +150,48 @@ def delete_file(file_id):
 #
 
 
-@app.route('/files', methods=['POST'])
-def add_files():
-    payload = request.get_json()
-    filename = payload.get('filename')
-    content_type = payload.get('content_type')
-    file_data = base64.b64decode(payload.get('contents_b64'))
-    size = len(file_data)
+@app.route('/files_mp', methods=['POST'])
+def add_files_multipart():
+    # Flask separates files from the other form fields
+    payload = request.form
+    files = request.files
 
-    file_data_1_names, file_data_2_names = raid1.store_file(file_data, send_task_socket, response_socket)
-    
-    # Insert the File record in the DB
-    db = get_db()
-    cursor = db.execute(
-        "INSERT INTO `file`(`filename`, `size`, `content_type`, `part1_filenames`, `part2_filenames`) VALUES (?,?,?,?,?)",
-        (filename, size, content_type, ','.join(file_data_1_names), ','.join(file_data_2_names))
-    )
-    db.commit()
+    # Make sure there is a file in the request
+    if not files or not files.get('file'):
+        logging.error("No file was uploaded in the request!")
+        return make_response("File missing!", 400)
 
-    # Return the ID of the new file record with HTTP 201 (Created) status code
-    return make_response({"id": cursor.lastrowid }, 201)
+    # Reference to the uploaded file under the 'file' key
+    file = files.get('file')
+    # The sender encodes the file name and type together with the file contents
+    filename = file.filename
+    content_type = file.mimetype
+    # Load the file contents into a bytearray and measure its size
+    data = file.read()
+    size = len(data)
+    print("File received: %s, size: %d bytes, type: %s" % (filename, size, content_type))
+
+    # Read the requested storage mode (default value: 'raid1')
+    storage_mode = payload.get('storage', 'raid1')
+    print("Storage mode: %s" % storage_mode)
+
+    if storage_mode == 'raid1':
+        # TODO implement RAID 1
+        pass
+
+    elif storage_mode == 'erasure_coding_rs':
+        # TODO implement Reed Solomon code
+        # Parse max_erasures (everything is a string in request.form,
+        # we need to convert to int manually), set default value to 1
+        max_erasures = int(payload.get('max_erasures', 1))
+        print("Max erasures: %d" % (max_erasures))
+        pass
+
+    else:
+        logging.error("Unexpected storage mode: %s" % storage_mode)
+        return make_response("Wrong storage mode", 400)
+
+    return make_response('OK', 200)
 #\
 @app.errorhandler(500)
 def server_error(e):
