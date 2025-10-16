@@ -196,7 +196,37 @@ def start_repair_process(files, repair_socket, repair_response_socket):
         missing_fragments = []
         existing_fragments = []
         for fragment in coded_fragments:
-            # TO BE DONE: check the fragment exists one one of the storage nodes
+            task = messages_pb2.fragment_status_request()
+            task.fragment_name = fragment
+            header = messages_pb2.header()
+            header.request_type = messages_pb2.FRAGMENT_STATUS_REQ
+
+            repair_socket.send_multipart([b"all_nodes",
+                                          header.SerializeToString(),
+                                          task.SerializeToString()])
+
+            fragment_found = False
+            # Wait until we receive a response from each node
+            for task_nbr in range(STORAGE_NODES_NUM):
+                msg = repair_response_socket.recv()
+                response = messages_pb2.fragment_status_response()
+                response.ParseFromString(msg)
+                nodes.add(response.node_id)  # Build a set of nodes
+                if response.is_present == True:
+                    nodes_with_fragment.add(response.node_id)
+                    existing_fragments.append(fragment)
+                    fragment_found = True
+
+            if fragment_found == False:
+                print("Fragment %s lost" % fragment)
+                missing_fragments.append(fragment)
+                number_of_missing_fragments += 1
+            else:
+                print("Fragment %s OK" % fragment)
+
+        # If we have lost fragments, we must figure out where they were stored
+        # We assume that each node has exactly 1 or 0 fragments
+        nodes_without_fragment = list(nodes.difference(nodes_with_fragment))
 
     # TO BE DONE: For each missing fragment, retrieve sufficient fragments to decode
 

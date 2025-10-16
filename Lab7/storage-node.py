@@ -160,7 +160,28 @@ while True:
         header.ParseFromString(msg[1])
 
         # Parsing the message base on the header goes here
-        # TO BE DONE
+        if header.request_type == messages_pb2.FRAGMENT_STATUS_REQ:
+            # Fragment Status requests
+            task = messages_pb2.fragment_status_request()
+            task.ParseFromString(msg[2])
+
+            fragment_name = task.fragment_name
+            # Check whether the fragment is on the disk
+            fragment_found = os.path.exists(data_folder + '/' + fragment_name) and \
+                             os.path.isfile(data_folder + '/' + fragment_name)
+
+            if fragment_found == True:
+                print("Status request for fragment: %s - Found" % fragment_name)
+            else:
+                print("Status request for fragment: %s - Not found" % fragment_name)
+
+            # Send the response
+            response = messages_pb2.fragment_status_response()
+            response.fragment_name = fragment_name
+            response.is_present = fragment_found
+            response.node_id = node_id
+
+            repair_sender.send(response.SerializeToString())
 
         else:
             print("Message type not supported")
