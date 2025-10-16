@@ -133,7 +133,47 @@ def download_file(file_id):
 
     print("File requested: {}".format(f))
 
-    return send_file(f['blob_name'], mimetype=f['content_type'])
+    # Select one chunk of each half
+    part1_filenames = f['part1_filenames'].split(',')
+    part2_filenames = f['part2_filenames'].split(',')
+    part1_filename = part1_filenames[random.randint(0, len(part1_filenames) - 1)]
+    part2_filename = part2_filenames[random.randint(0, len(part2_filenames) - 1)]
+
+    # Request both chunks in parallel
+    task1 = messages_pb2.getdata_request()
+    task1.filename = part1_filename
+    data_req_socket.send(
+        task1.SerializeToString()
+    )
+    task2 = messages_pb2.getdata_request()
+    task2.filename = part2_filename
+    data_req_socket.send(
+        task2.SerializeToString()
+    )
+
+    # Receive both chunks and insert them to
+    file_data_parts = [None, None]
+    for _ in range(2):
+        result = response_socket.recv_multipart()
+        # First frame: file name (string)
+        filename_received = result[0].decode('utf-8')
+        # Second frame: data
+        chunk_data = result[1]
+
+        print(f"Received {filename_received}")
+
+        if filename_received == part1_filename:
+            # The first part was received
+            file_data_parts[0] = chunk_data
+        else:
+            # The second part was received
+            file_data_parts[1] = chunk_data
+
+    print("Both chunks received successfully")
+
+    # Combine the parts and serve the file
+    file_data = file_data_parts[0] + file_data_parts[1]
+    return send_file(io.BytesIO(file_data), mimetype=f['content_type'])
 #
 
 # HTTP HEAD requests are served by the GET endpoint of the same URL,
