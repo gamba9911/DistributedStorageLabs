@@ -196,14 +196,42 @@ def add_files():
     file_data = b64decode(payload.get('contents_b64'))
     size = len(file_data)
 
-    # Store the file locally with a random generated name
-    blob_name = write_file(file_data)
+    # RAID 1: cut the file in half and store both halves 2x
+    file_data_1 = file_data[:math.ceil(size / 2.0)]
+    file_data_2 = file_data[math.ceil(size / 2.0):]
+    # Generate two random chunk names for each half
+    file_data_1_names = [random_string(8), random_string(8)]
+    file_data_2_names = [random_string(8), random_string(8)]
+    print(f"Filenames for part 1: {file_data_1_names}")
+    print(f"Filenames for part 2: {file_data_2_names}")
+    # Send 2 'store data' Protobuf requests with the first half and chunk names
+    for name in file_data_1_names:
+        task = messages_pb2.storedata_request()
+        task.filename = name
+        send_task_socket.send_multipart([
+            task.SerializeToString(),
+            file_data_1
+        ])
+    # Send 2 'store data' Protobuf requests with the second half and chunk names
+    for name in file_data_2_names:
+        task = messages_pb2.storedata_request()
+        task.filename = name
+        send_task_socket.send_multipart([
+            task.SerializeToString(),
+            file_data_2
+        ])
+    # Wait until we receive 4 responses from the workers
+    for task_nbr in range(4):
+        resp = response_socket.recv_string()
+    print(f"Received: {resp}")
+    # At this point all chunks are stored, insert the File record in the DB
 
     # Insert the File record in the DB
     db = get_db()
     cursor = db.execute(
-        "INSERT INTO `file`(`filename`, `size`, `content_type`, `blob_name`) VALUES (?,?,?,?)",
-        (filename, size, content_type, blob_name)
+        "INSERT INTO `file`(`filename`, `size`, `content_type`, `part1_filenames`,"
+        "`part2_filenames`) VALUES(?,?,?,?,?)",
+    (filename, size, content_type, ','.join(file_data_1_names), ','.join(file_data_2_names))
     )
     db.commit()
 
