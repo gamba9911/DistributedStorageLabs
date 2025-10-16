@@ -116,12 +116,16 @@ def download_file(file_id):
         )
 
     elif f['storage_mode'] == 'erasure_coding_rs':
-        # TODO Handle Reed Solomon
-        # dummyImage to simulate content retrieval
-        with open("dummyImage.png", "rb") as image:
-            file = image.read()
-        file_data = bytearray(file)
-        pass
+        coded_fragments = storage_details['coded_fragments']
+        max_erasures = storage_details['max_erasures']
+
+        file_data = reedsolomon.get_file(
+            coded_fragments,
+            max_erasures,
+            f['size'],
+            data_req_socket,
+            response_socket
+        )
 
     return send_file(io.BytesIO(file_data), mimetype=f['content_type'])
 #
@@ -209,12 +213,14 @@ def add_files_multipart():
         # we need to convert to int manually), set default value to 1
         max_erasures = int(payload.get('max_erasures', 1))
         print("Max erasures: %d" % (max_erasures))
-        #TODO Implement erasure coding
+
+        # Store the file contents with Reed Solomon erasure coding
+        fragment_names = reedsolomon.store_file(data, max_erasures, send_task_socket,
+                                                response_socket)
         storage_details = {
-            "part1_filenames": "",
-            "part2_filenames": "",
+            "coded_fragments": fragment_names,
+            "max_erasures": max_erasures
         }
-        pass
     else:
         logging.error("Unexpected storage mode: %s" % storage_mode)
         return make_response("Wrong storage mode", 400)
