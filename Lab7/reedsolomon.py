@@ -282,7 +282,31 @@ def start_repair_process(files, repair_socket, repair_response_socket):
                                             repair_response_socket
                                             )
 
-    # TO BE DONE: Reencode the missing fragment, store it on one of the appropriate nodes
+            # Build the encoder
+            # How many coded fragments (=symbols) will be required to reconstruct the encoded data.
+            symbols = STORAGE_NODES_NUM - storage_details["max_erasures"]
+            # The size of one coded fragment (total size/number of symbols, rounded up)
+            symbol_size = math.ceil(len(file_data) / symbols)
+            # Pyerasure RLNC encoder using 2^8 finite field
+            encoder = pyerasure.Encoder(
+                field=pyerasure.finite_field.Binary8(),
+                symbols=symbols,
+                symbol_bytes=symbol_size,
+            )
+
+            # Padding, to make sure tho get the correct separation in symbols
+            encoder.set_symbols(file_data.ljust(symbol_size * symbols, b'\0'))
+
+            symbol = bytearray(encoder.symbol_bytes)
+
+            # Re-encode each missing fragment:
+            for missing_fragment in missing_fragments:
+                fragment_index = coded_fragments.index(missing_fragment)
+                # Select the appropriate Reed Solomon coefficient vector
+                coefficients = RS_CAUCHY_COEFFS[fragment_index]
+                # Generate a coded fragment with these coefficients
+                # (trim the coeffs to the actual length we need)
+                symbol = encoder.encode_symbol(coefficients[:symbols])
 
     return number_of_missing_fragments, number_of_repaired_fragments
 #
