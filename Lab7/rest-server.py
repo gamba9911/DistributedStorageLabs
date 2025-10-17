@@ -12,6 +12,9 @@ import time # For waiting a second for ZMQ connections
 import io # For sending binary data in a HTTP response
 import logging
 
+from apscheduler.schedulers.background import BackgroundScheduler # automated repair
+import atexit # unregister scheduler at app exit
+
 import raid1
 import reedsolomon
 
@@ -285,8 +288,19 @@ def rs_repair():
                           "fragments_repaired": fragments_repaired})
 #
 
-# Automated RS repair goes here
-# TO BE DONE
+def rs_automated_repair():
+    print("Running automated Reed-Solomon repair process")
+    with app.app_context():
+        rs_repair()
+#
+
+#Create a scheduler and post a repair job every 60 seconds
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=rs_automated_repair, trigger="interval", seconds=60)
+scheduler.start()
+
+# Shut down the scheduler when exiting the app
+atexit.register(lambda: scheduler.shutdown())
 
 @app.errorhandler(500)
 def server_error(e):
