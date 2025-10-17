@@ -183,6 +183,29 @@ while True:
 
             repair_sender.send(response.SerializeToString())
 
+        elif header.request_type == messages_pb2.FRAGMENT_DATA_REQ:
+            # Fragment data request - same implementation as serving normal data
+            # requests, except for the different socket the response is sent on
+            task = messages_pb2.getdata_request()
+            task.ParseFromString(msg[2])
+
+            filename = task.filename
+            print("Data chunk request: %s" % filename)
+
+            # Try to load the requested file from the local file system,
+            # send response only if found
+            try:
+                with open(data_folder + '/' + filename, "rb") as in_file:
+                    print("Found chunk %s, sending it back" % filename)
+
+                    repair_sender.send_multipart([
+                        bytes(filename, 'utf-8'),
+                        in_file.read()
+                    ])
+            except FileNotFoundError:
+                # This is OK here
+                pass
+
         else:
             print("Message type not supported")
 #
