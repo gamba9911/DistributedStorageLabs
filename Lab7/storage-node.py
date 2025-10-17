@@ -75,8 +75,10 @@ repair_subscriber.connect(repair_subscriber_address)
 # Receive messages destined for all nodes
 repair_subscriber.setsockopt(zmq.SUBSCRIBE, b'all_nodes')
 
-# Subscription to individual messages goes here
-# TO BE DONE
+# Receive messages destined for all nodes
+repair_subscriber.setsockopt(zmq.SUBSCRIBE, b'all_nodes')
+# Receive messages destined for this node
+repair_subscriber.setsockopt(zmq.SUBSCRIBE, node_id.encode('UTF-8'))
 
 # Socket to send repair results to the controller
 repair_sender = context.socket(zmq.PUSH)
@@ -205,6 +207,25 @@ while True:
             except FileNotFoundError:
                 # This is OK here
                 pass
+
+        elif header.request_type == messages_pb2.STORE_FRAGMENT_DATA_REQ:
+            # Fragment store request - same implementation as serving normal data
+            # requests, except for the different socket the response is sent on
+            task = messages_pb2.storedata_request()
+            task.ParseFromString(msg[2])
+
+            # The data is the third frame
+            data = msg[3]
+
+            print('Chunk to save: %s, size: %d bytes' % (task.filename, len(data)))
+
+            # Store the chunk with the given filename
+            chunk_local_path = data_folder + '/' + task.filename
+            write_file(data, chunk_local_path)
+            print("Chunk saved to %s" % chunk_local_path)
+
+            # Send response (just the file name)
+            repair_sender.send_string(task.filename)
 
         else:
             print("Message type not supported")

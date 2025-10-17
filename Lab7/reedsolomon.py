@@ -308,5 +308,28 @@ def start_repair_process(files, repair_socket, repair_response_socket):
                 # (trim the coeffs to the actual length we need)
                 symbol = encoder.encode_symbol(coefficients[:symbols])
 
+                # Save with the same name as before
+                # Send a Protobuf STORE DATA request to the Storage Nodes
+                task = messages_pb2.storedata_request()
+                task.filename = missing_fragment
+
+                header = messages_pb2.header()
+                header.request_type = messages_pb2.STORE_FRAGMENT_DATA_REQ
+
+                node_id = nodes_without_fragment[number_of_repaired_fragments]
+
+                # Use the node_id as the topic
+                repair_socket.send_multipart([node_id.encode('UTF-8'),
+                                              header.SerializeToString(),
+                                              task.SerializeToString(),
+                                              coefficients[:symbols] + bytearray(symbol)
+                                              ])
+                number_of_repaired_fragments += 1
+
+            # Wait until we receive a response for every fragment
+            for task_nbr in range(len(missing_fragments)):
+                resp = repair_response_socket.recv_string()
+                print('Repaired fragment: %s' % resp)
+
     return number_of_missing_fragments, number_of_repaired_fragments
 #
