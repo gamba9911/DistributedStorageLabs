@@ -153,7 +153,7 @@ def download_file(file_id):
 
     # Receive both chunks and insert them to
     file_data_parts = [None, None]
-    for _ in range(2):
+    for _ in range(5):#I had to change, because the first 4 messages are the same
         result = response_socket.recv_multipart()
         # First frame: file name (string)
         filename_received = result[0].decode('utf-8')
