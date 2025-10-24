@@ -31,3 +31,13 @@ On the terminal shell invoke sqlite3
 <br>As a result, a new file called **messages_pb2.py** is created, 
 which gives you a convenient Python class to work with, 
 and also implement serialization and parsing file messages.
+
+### Handling Files
+#### Convert file to Base64 String
+Use the website
+https://www.browserling.com/tools/file-to-base64
+<br> As an example, the result of the conversion for **dummyImage.png** was saved in [dummyImageBase64String.txt](dummyImageBase64String.txt)
+#### File type code
+Check here:
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types
+<br> As an example, the MIME Type for the .png is "image/png".
