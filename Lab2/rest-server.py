@@ -73,7 +73,7 @@ def download_file(file_id):
 
     print("File requested: {}".format(f))
 
-    return send_file(f['blob_name'], mimetype=f['content_type'])
+    return send_file('../' + f['blob_name'], mimetype=f['content_type'])
 
 
 #
