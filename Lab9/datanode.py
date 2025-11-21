@@ -56,7 +56,35 @@ Request body: Empty
 Response: Binary file contents
 
 """
+@app.route('/write', methods=['POST'])
+def write_file():
+    payload = request.get_json()
+    file_data = base64.b64decode(payload.get('file_data'))
+    file_id = payload.get('file_id')
+    replica_locations = payload.get('replica_locations')
 
+    filename = "{}/file-{}.bin".format(data_folder, file_id)
+    if not utils.write_file(file_data, filename):
+        logging.error("Error saving %d bytes data" % len(file_data))
+        return make_response({'message', 'Error storing file'}, 500)
+
+    if len(replica_locations):
+        # Select the first replica and remove it from the original list
+        target_dn = replica_locations[0]
+        payload['replica_locations'] = replica_locations[1:]
+
+    # Construct HTTP POST request to the next Datanode (re-send the payload we got)
+    req = urllib.request.Request(target_dn + '/write')
+    req.add_header('Content-Type', 'application/json; charset=utf-8')
+    payload_bytes = json.dumps(payload).encode('utf-8')  # needs to be bytes
+    req.add_header('Content-Length', len(payload_bytes))
+    # Send the request and wait for the response
+    response = urllib.request.urlopen(req, payload_bytes)
+    print("Response: HTTP %d" % response.status)
+    if response.status != 200:
+        return make_response({"message": "Error saving file at {}".format(target_dn)},
+                             500)
+    return make_response({})
 
 # Start the Flask app (must be after the endpoint functions)
 host_local_computer = "localhost" # Listen for connections on the local computer
