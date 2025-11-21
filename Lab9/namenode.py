@@ -49,6 +49,31 @@ Endpoint: GET /files
 Request body: Empty
 Response: List of File objects (ID, filename, size, mime type, list of datanode addresses)
 """
+
+
+@app.route('/files', methods=['POST'])
+def add_files():
+    payload = request.get_json()
+    filename = payload.get('filename')
+    filetype = payload.get('type')
+    size = payload.get('size')
+    # Select 2 random datanodes (without repetition) to store the file replicas
+    replica_locations = random.sample(DATANODE_ADDRESSES, k=2)
+    # Insert the File record in the DB
+    db = utils.get_db()
+    cursor = db.execute(
+        "INSERT INTO `file`(`filename`, `size`, `type`, `replica_locations`) VALUES (?,?,?,?)",
+        (filename, size, filetype, ' '.join(replica_locations))
+    )
+    db.commit()
+    file_id = cursor.lastrowid
+    # Return the new file ID and the replica locations (datanode addresses)
+    result = {
+        "id": file_id,
+        "replica_locations": replica_locations
+    }
+    return make_response(result, 201)
+
 @app.route('/files', methods=['GET'])
 def list_files():
     db = utils.get_db()
