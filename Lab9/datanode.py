@@ -86,6 +86,15 @@ def write_file():
                              500)
     return make_response({})
 
+@app.route('/read/<int:file_id>', methods=['GET'])
+def read_file(file_id):
+    filename = "{}/file-{}.bin".format(data_folder, file_id)
+    file_contents = None
+    with open(filename, "rb") as f:
+        file_contents = f.read()
+
+    return send_file(io.BytesIO(file_contents), mimetype='application/octet-stream')
+
 # Start the Flask app (must be after the endpoint functions)
 host_local_computer = "localhost" # Listen for connections on the local computer
 host_local_network = "0.0.0.0" # Listen for connections on the local network
