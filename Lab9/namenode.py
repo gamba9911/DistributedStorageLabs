@@ -49,6 +49,17 @@ Endpoint: GET /files
 Request body: Empty
 Response: List of File objects (ID, filename, size, mime type, list of datanode addresses)
 """
+@app.route('/files', methods=['GET'])
+def list_files():
+    db = utils.get_db()
+    cursor = db.execute("SELECT * FROM `file`")
+    if not cursor:
+        return make_response({"message": "Error connecting to the database"}, 500)
+    files = cursor.fetchall()
+    # Convert files from sqlite3.Row object (which is not JSON-encodable) to
+    # a standard Python dictionary simply by casting
+    files = [dict(file) for file in files]
+    return make_response({"files": files})
 
 
 # Start the Flask app (must be after the endpoint functions) 
